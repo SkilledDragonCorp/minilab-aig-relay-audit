@@ -1,0 +1,56 @@
+[project]
+name = "relay-audit"
+version = "0.1.0"
+description = "SkilledDragon minilab: audit OpenAI-compatible model relays with Tencent AI-Infra-Guard"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "SkilledDragon LLC", email = "hello@skilleddragon.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.28.0,<3",
+    "numpy>=1.26.0,<3",
+    "scipy>=1.11.0,<2",
+    "fastapi>=0.110.0,<1",
+    "uvicorn[standard]>=0.29.0,<1",
+    "PyYAML>=6.0.0,<7",
+    "python-dotenv>=1.0.0,<2",
+    "httpx>=0.27.0,<1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
+]
+
+[project.scripts]
+relay-audit = "relay_audit.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/relay_audit"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src/relay_audit" = "relay_audit"
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests", "scripts"]
+extend-exclude = ["upstream"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "live: requires GEMINI_API_KEY; skipped when unset",
+]

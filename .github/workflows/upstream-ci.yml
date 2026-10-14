@@ -1,0 +1,72 @@
+name: Upstream CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+# 快速连续推送时取消被取代的运行，避免排队浪费
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  go-test:
+    name: Build and test Go packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Verify upstream pin
+        run: git -C upstream rev-parse HEAD | grep -qx 5ec95d4cd350f1982c0be71848463b07614e6e9d
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          # 跟随 go.mod 声明的工具链，避免版本漂移
+          go-version-file: upstream/go.mod
+          cache-dependency-path: upstream/go.sum
+          cache: true
+
+      - name: Build
+        working-directory: upstream
+        run: go build ./...
+
+      # -count=1 关闭测试结果缓存，否则缓存命中会让坏掉的主分支看起来是绿的
+      - name: Test
+        working-directory: upstream
+        run: go test ./... -count=1
+
+  # Lab-owned (NOT an upstream CI step): keyless api_checker pytest at the pin.
+  api-checker-pytest:
+    name: api-checker pytest (lab-owned)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Verify upstream pin
+        run: git -C upstream rev-parse HEAD | grep -qx 5ec95d4cd350f1982c0be71848463b07614e6e9d
+
+      - name: Install api_checker venv
+        working-directory: upstream
+        run: |
+          python3 -m venv services/api_checker/.venv
+          services/api_checker/.venv/bin/pip install -r services/api_checker/requirements.txt
+          services/api_checker/.venv/bin/pip install pytest==9.1.1
+
+      - name: Run api_checker tests
+        working-directory: upstream
+        run: services/api_checker/.venv/bin/python -m pytest services/api_checker/tests -q
